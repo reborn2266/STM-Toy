@@ -27,8 +27,8 @@
 #include <pthread.h>
 #include "atomic.h"
 
-#define STM_DEBUG
-#define STM_STATISTICS
+//#define STM_DEBUG
+//#define STM_STATISTICS
 
 #ifdef STM_DEBUG
 #define PRINT_DEBUG(format, ...)	printf(format, ##__VA_ARGS__)

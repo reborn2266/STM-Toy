@@ -330,6 +330,7 @@ char stm_read_char(void *addr)
 		entry = (struct w_entry *)malloc(sizeof(struct w_entry));
 		entry->addr = addr;
 		entry->rec  = rec;
+		PRINT_DEBUG("Read-REC at %16p\n", rec);
 		add_after_head(&tx->ws, entry);
 		tx->ws.nr_entries += 1;
 		return data;
@@ -416,54 +417,49 @@ void printID(void)
 
 int counter = 0;
 
-char shc = 'A';
+char shc = '\0';
 int shint = 0x05060708;
 
 void *thread_func(void *arg)
 {
-	sleep(1);
-	printID();
-	
 	TM_THREAD_INIT();
 
+	int i = 10;
+	while (i--) {
 	__TM_START__ {
 		
-		//TM_WRITE(shint, 0x01020304);
-		//TM_READ(shint);
-		TM_WRITE_CHAR(shc, 'B');
-		TM_WRITE_CHAR(shc, 'C');
-		TM_WRITE_CHAR(shc, 'D');
-		
+		TM_WRITE_CHAR(shc, (TM_READ_CHAR(shc) + 1));
 		TM_COMMIT();
 
 	} __TM_END__
-	
-	atomic_inc(&counter);
-
-	__TM_START__ {
-		TM_WRITE_CHAR(shc, 'B');
-		TM_WRITE_CHAR(shc, 'D');
-		TM_COMMIT();
-	} __TM_END__
-	
+	}
 	atomic_inc(&counter);
 
 	return (void *)0;
 }
 
+char shc_ex = '\0';
+
+void *thread_func_ex(void *arg)
+{
+	int i = 10;
+
+	while (i--) {
+		shc_ex += 1;
+	}
+}
+
 int main(void)
 {
-	int i, err;
-	pthread_t ntid;
+	int i;
+	pthread_t ntids[20];
 
-	printID();
-	
 	for (i = 0; i < 10; i++) {
-		err = pthread_create(&ntid, NULL, thread_func, NULL);
-		if (err)
-			printf("Create thread %d failed\n", ntid);
+		pthread_create(&ntids[i], NULL, thread_func, NULL);
+		pthread_create(&ntids[i+10], NULL, thread_func_ex, NULL);
 	}
-	sleep(5);
-	printf("Counter: %d\n", counter);
+	for (i = 0; i < 20; i++) pthread_join(ntids[i], NULL);
+	printf("shc: %d\n", shc);
+	printf("shc_ex: %d\n", shc_ex);
 	return 0;
 }
