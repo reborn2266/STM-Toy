@@ -27,7 +27,7 @@
 
 DEFINE_PER_THREAD(struct stm_tx *, thread_tx);
 
-struct orec oa;
+struct orec ownership_record;
 int cnt=0;
 
 //#################################################
@@ -239,7 +239,7 @@ char stm_read_char(volatile void *addr)
 		return 0;
 	}
 	
-	rec = &oa;
+	rec = &ownership_record;
 	
 	if ((enemy = atomic_cmpxchg(&rec->owner, NULL, tx))) {
 		/* Other tx may abort thix tx IN THE MEANTIME.
@@ -305,7 +305,7 @@ void stm_write_char(volatile void *addr, char new)
 		return;
 	}
 	
-	rec = &oa;
+	rec = &ownership_record;
 	
 	/* CAS */
 	if ((enemy = atomic_cmpxchg(&rec->owner, NULL, tx))) {
@@ -324,7 +324,7 @@ void stm_write_char(volatile void *addr, char new)
 		}
 	}
 	
-	/* First access */
+	/* First access and won the ownership record */
 	if (enemy == NULL) {
 		old = *(char *)addr;
 		OREC_SET_OLD(rec, old);
