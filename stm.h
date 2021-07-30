@@ -147,7 +147,7 @@ enum STM_ABORT_REASON {
  * transaction has read data entry.
  */
 struct r_entry {
-	char *addr;
+	volatile char *addr;
 	struct orec *rec;
 	struct r_entry *next;
 };
@@ -158,7 +158,7 @@ struct r_entry {
  * transaction has a write data entry.
  */
 struct w_entry {
-	void *addr;
+	volatile void *addr;
 	struct orec *rec;
 	struct w_entry *next;
 };
@@ -229,8 +229,8 @@ void stm_start(void);
 void stm_abort(void);
 int stm_commit(void);
 int stm_validate(void);
-char stm_read_char(void *addr);
-void stm_write_char(void *addr, char new);
+char stm_read_char(volatile void *addr);
+void stm_write_char(volatile void *addr, char new);
 int stm_contention_manager(struct stm_tx *enemy);
 
 struct stm_tx *tls_get_tx(void);

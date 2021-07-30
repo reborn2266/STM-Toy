@@ -224,7 +224,7 @@ int stm_contention_manager(struct stm_tx *enemy)
  * @addr:	Address of the byte
  * Return:	the date in @addr
  */
-char stm_read_char(void *addr)
+char stm_read_char(volatile void *addr)
 {
 	char data;
 	struct orec *rec;
@@ -291,7 +291,7 @@ char stm_read_char(void *addr)
  * tm_write_addr - Write a byte to TM
  * @addr:	Address of the byte
  */
-void stm_write_char(void *addr, char new)
+void stm_write_char(volatile void *addr, char new)
 {
 	char old;
 	struct orec *rec;
@@ -359,7 +359,7 @@ void printID(void)
 
 int counter = 0;
 
-char shc = '\0';
+volatile char shc = '\0';
 
 void *thread_func(void *arg)
 {
@@ -379,7 +379,7 @@ void *thread_func(void *arg)
 	return (void *)0;
 }
 
-char shc_ex = '\0';
+volatile char shc_ex = '\0';
 
 void *thread_func_ex(void *arg)
 {
