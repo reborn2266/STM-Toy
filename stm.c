@@ -325,7 +325,7 @@ void stm_write_char(volatile void *addr, char new)
 	}
 	
 	/* First access and won the ownership record */
-	if (enemy == NULL) {
+	if (enemy == NULL && rec->owner == tx) {
 		old = *(char *)addr;
 		OREC_SET_OLD(rec, old);
 		OREC_SET_NEW(rec, new);
