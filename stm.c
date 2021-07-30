@@ -18,6 +18,7 @@
  */
 
 #include "stm.h"
+#include <unistd.h>
 
 /* 
  * Each thread only has one transaction descriptor instance.
@@ -26,7 +27,7 @@
 
 DEFINE_PER_THREAD(struct stm_tx *, thread_tx);
 
-struct orec oa[4];
+struct orec oa;
 int cnt=0;
 
 //#################################################
@@ -60,23 +61,6 @@ static void add_after_head(struct write_set *ws, struct w_entry *new)
 }
 
 /*
- * stm_addr_to_orec - hash addr to get orec
- * @addr: the addr used to hash
- * Return: orec pointer
- *
- * STM system keep a _global_ hashtable to maintain all
- * the ownership records used by all alive transactions.
- * After a transaction commit, hashtable should free
- * all transaction relevent records.
- */
-//TODO
-static struct orec *
-stm_addr_to_orec(void *addr)
-{
-	return NULL;
-}
-
-/*
  * STM_MALLOC - malloc memory for object
  * @size: object size need to malloc
  * A wrapper for memory allocater.
@@ -89,15 +73,6 @@ struct stm_tx *STM_MALLOC(size_t size)
 	memptr = valloc(size);
 	memset(memptr, 0, size);
 	return (struct stm_tx *)memptr;
-}
-
-/*
- * stm_current_tsp - Get TimeStamp
- */
-//TODO
-static int stm_current_tsp(void)
-{
-	return 0;
 }
 
 //#################################################
@@ -129,7 +104,6 @@ void stm_start(void)
 	
 	new_tx = STM_MALLOC(sizeof(struct stm_tx));
 	new_tx->tid = pthread_self();
-	new_tx->start_tsp = stm_current_tsp();
 	stm_set_status_tx(new_tx, STM_ACTIVE);
 	tls_set_tx(new_tx);
 	
@@ -160,19 +134,6 @@ void stm_restart(void)
 	tx->nr_aborts++;
 #endif
 	stm_set_status_tx(tx, STM_ACTIVE);
-}
-
-/*
- * Maybe there are more than one transaction
- * try to abort the same tx in the meantime.
- * That is ok, because abort() only change
- * the status of the tx. Transaction will
- * check status everytime before it use data.
- */
-void stm_abort(void)
-{
-	stm_set_status(STM_ABORT);
-	stm_set_abort_reason(STM_SELF_ABORT);
 }
 
 void stm_abort_tx(struct stm_tx *tx, int reason)
@@ -208,6 +169,7 @@ int stm_commit(void)
 			/* Write back dirty data. */
 			*(char *)entry->addr = rec->new;
 			
+			PRINT_DEBUG("rec: %p\n", rec);
 			/*
 			 * Dirty data has written back, it is
 			 * time to discharge the OREC. Once
@@ -216,7 +178,6 @@ int stm_commit(void)
 			 * the OWNERSHIP _immediately_.
 			 */
 			OREC_SET_OWNER(rec, NULL);
-			
 			clean = entry;
 			entry = entry->next;
 			free(clean);
@@ -234,19 +195,6 @@ int stm_commit(void)
 			tx->version, tx->tid);
 		return 1;
 	}
-}
-
-/*
- * stm_validate - report transaction status
- * Return: 0 means alive, 1 means aborted
- *
- * ACTIVE, COMMITING and COMMITED indicate
- * the transaction still alive, otherwise
- * it was aborted by itself or enemies.
- */
-int stm_validate(void)
-{
-	return stm_get_status() == STM_ABORT;
 }
 
 int stm_validate_tx(struct stm_tx *tx)
@@ -291,12 +239,9 @@ char stm_read_char(void *addr)
 		return 0;
 	}
 	
-	//FIXME Get the ownership record
-	rec = stm_addr_to_orec(addr);
-	rec = &oa[cnt%4]; cnt++;
-	rec = &oa[0];
+	rec = &oa;
 	
-	if (enemy = atomic_cmpxchg(&rec->owner, NULL, tx)) {
+	if ((enemy = atomic_cmpxchg(&rec->owner, NULL, tx))) {
 		/* Other tx may abort thix tx IN THE MEANTIME.
 		 * However, we just return the new data in OREC.
 		 * If this tx is aborted by other tx, then
@@ -360,13 +305,10 @@ void stm_write_char(void *addr, char new)
 		return;
 	}
 	
-	//FIXME Get the ownership record
-	rec = stm_addr_to_orec(addr);
-	rec = &oa[cnt%4]; cnt++;
-	rec = &oa[0];
+	rec = &oa;
 	
 	/* CAS */
-	if (enemy = atomic_cmpxchg(&rec->owner, NULL, tx)) {
+	if ((enemy = atomic_cmpxchg(&rec->owner, NULL, tx))) {
 		if (enemy == tx) {
 			OREC_SET_NEW(rec, new);
 			PRINT_DEBUG("TX: %d TID %d Write-Exist %3d to %16p\n",
@@ -412,13 +354,12 @@ void printID(void)
 {
 	pid_t pid = getpid();
 	pthread_t tid = pthread_self();
-	printf("Process: %d Thread: %d\n", pid, tid);
+	printf("Process: %d Thread: %d\n", (int)pid, (int)tid);
 }
 
 int counter = 0;
 
 char shc = '\0';
-int shint = 0x05060708;
 
 void *thread_func(void *arg)
 {
@@ -447,6 +388,7 @@ void *thread_func_ex(void *arg)
 	while (i--) {
 		shc_ex += 1;
 	}
+	return (void *)0;
 }
 
 int main(void)
