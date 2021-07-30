@@ -4,8 +4,9 @@
 #include <immintrin.h>
 
 volatile static int i = 0;
+volatile static int j = 0;
 
-int f()
+int safe()
 {
     int status;
     while ((status = _xbegin ()) != _XBEGIN_STARTED) ;
@@ -18,12 +19,25 @@ int f()
     return i;
 }
 
+int unsafe()
+{
+    j++;
+    return j;
+}
+
+
 int main()
 {
-    std::vector<std::thread> v(10);
-    for(auto& t: v)
-        t = std::thread([]{ for(int n = 0; n < 10; ++n) f(); });
-    for(auto& t: v)
+    std::vector<std::thread> v1(10);
+    std::vector<std::thread> v2(10);
+    for(auto& t: v1)
+        t = std::thread([]{ for(int n = 0; n < 10; ++n) safe(); });
+    for(auto& t: v2)
+        t = std::thread([]{ for(int n = 0; n < 10; ++n) unsafe(); });
+    for(auto& t: v1)
+        t.join();
+    for(auto& t: v2)
         t.join();
     std::cout << "transactional: " << i << std::endl;
+    std::cout << "race: " << j << std::endl;
 }
